@@ -1,0 +1,143 @@
+version: '2.1'
+
+services:
+  zoo1:
+    image: zookeeper:3.4.9
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+        ZOO_MY_ID: 1
+        ZOO_PORT: 2181
+        ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zookeeper/zoo1/data:/data
+      - ./zookeeper/zoo1/datalog:/datalog
+      - /etc/localtime:/etc/localtime:ro
+  zoo2:
+    image: zookeeper:3.4.9
+    hostname: zoo2
+    ports:
+      - "2182:2182"
+    environment:
+        ZOO_MY_ID: 2
+        ZOO_PORT: 2182
+        ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zookeeper/zoo2/data:/data
+      - ./zookeeper/zoo2/datalog:/datalog
+      - /etc/localtime:/etc/localtime:ro
+
+  zoo3:
+    image: zookeeper:3.4.9
+    hostname: zoo3
+    ports:
+      - "2183:2183"
+    environment:
+        ZOO_MY_ID: 3
+        ZOO_PORT: 2183
+        ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+    volumes:
+      - ./zookeeper/zoo3/data:/data
+      - ./zookeeper/zoo3/datalog:/datalog
+      - /etc/localtime:/etc/localtime:ro
+
+
+  kafka1:
+    image: confluentinc/cp-kafka:5.1.0
+    hostname: kafka1
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka1:19092,LISTENER_DOCKER_EXTERNAL://192.168.0.114:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181,zoo2:2182,zoo3:2183"
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./kafka/kafka1/data:/var/lib/kafka/data
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - zoo1
+      - zoo2
+      - zoo3
+
+
+  kafka2:
+    image: confluentinc/cp-kafka:5.1.0
+    hostname: kafka2
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka2:19093,LISTENER_DOCKER_EXTERNAL://192.168.0.114:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181,zoo2:2182,zoo3:2183"
+      KAFKA_BROKER_ID: 2
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./kafka/kafka2/data:/var/lib/kafka/data
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - zoo1
+      - zoo2
+      - zoo3
+
+  kafka3:
+    image: confluentinc/cp-kafka:5.1.0
+    hostname: kafka3
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka3:19094,LISTENER_DOCKER_EXTERNAL://192.168.0.114:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181,zoo2:2182,zoo3:2183"
+      KAFKA_BROKER_ID: 3
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./kafka/kafka3/data:/var/lib/kafka/data
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - zoo1
+      - zoo2
+      - zoo3
+
+  zoonavigator-web:
+    image: elkozmon/zoonavigator-web:0.5.1
+    ports:
+     - "8004:8000"
+    environment:
+      API_HOST: "zoonavigator-api"
+      API_PORT: 9000
+    links:
+     - zoonavigator-api
+    depends_on:
+     - zoonavigator-api
+
+  zoonavigator-api:
+    image: elkozmon/zoonavigator-api:0.5.1
+    environment:
+      SERVER_HTTP_PORT: 9000
+    depends_on:
+     - zoo1
+      
+# hazelcast imdg
+  hazelcast:
+    image: hazelcast/hazelcast
+    hostname: hazelcast
+    expose:
+      - "5701"
+    volumes:
+        - ./hazelcast:/configFolder
+        - /etc/localtime:/etc/localtime:ro
+    environment:
+        - JAVA_OPTS=-Dhazelcast.config=/configFolder/hazelcast.xml -Dhazelcast.local.publicAddress=192.168.0.114:5701 -Dgroup.name=hibernate -Dgroup.password=password -Dhazelcast.rest.enabled=true
+    ports:
+        - 192.168.0.114:5701:5701
+
+
